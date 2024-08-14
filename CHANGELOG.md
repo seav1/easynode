@@ -1,3 +1,31 @@
+## [2.1.6](https://github.com/chaos-zhu/easynode/releases) (2024-08-13)
+
+### Features
+
+* SFTP支持上传嵌套文件夹 ✔
+* 修复面板服务缓存文件夹偶尔不存在的bug  ✔
+
+## [2.1.5](https://github.com/chaos-zhu/easynode/releases) (2024-08-12)
+
+### Features
+
+* 新增终端设置 ✔
+* 支持更多终端主题 ✔
+* 支持终端背景图片(当前版本只缓存在前端且只可以使用内置背景图片) ✔
+
+## [2.1.4](https://github.com/chaos-zhu/easynode/releases) (2024-08-12)
+
+### Features
+
+* 新增cd全路径命令联动SFTP面板 ✔
+* 修复SFTP文件编辑文件名称显示错误的bug ✔
+
+## [2.1.3](https://github.com/chaos-zhu/easynode/releases) (2024-08-11)
+
+### Features
+
+* 修复开启or关闭SFTP功能开关时，终端光标位置错误的bug ✔
+
 ## [2.1.2](https://github.com/chaos-zhu/easynode/releases) (2024-08-09)
 
 ### Features

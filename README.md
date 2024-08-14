@@ -1,34 +1,32 @@
 # EasyNode
 
 > [!WARNING]
-> 初次部署EasyNode，登录系统后务必记得修改默认账户密码 `admin/admin`！
-
-> 强烈建议使用 **iptables** 限制IP访问，谨慎暴露面板服务到公网。
+> 初次部署EasyNode，登录系统后务必记得修改默认账户密码 `admin/admin`！强烈建议使用 **iptables** 限制IP访问，谨慎暴露面板服务到公网！
 
 <!-- > [!NOTE]
 > webssh与监控服务都将以`该服务器作为中转`。中国大陆连接建议使用香港、新加坡、日本、韩国等地区的低延迟服务器来安装服务端 -->
 
   - [功能](#功能)
-  - [安装](#安装指南)
+  - [安装](#安装)
     - [服务端安装](#服务端安装)
     - [监控服务安装](#监控服务安装)
   - [版本日志](#版本日志)
   - [开发](#开发)
-  - [Q&A](#Q&A)
+  - [QA](#QA)
   - [捐赠](#捐赠)
   - [License](#license)
 
 ## 功能
 
 - [x] webssh终端&SFTP
-- [x] 批量导入导出实例(Xshell&FinalShell)
+- [x] 批量导入导出实例(Xshell&FinalShell&EasyNode)
 - [x] 实例分组
 - [x] 凭据托管
 - [x] 邮件通知
 - [x] 服务器状态推送
 - [x] 脚本库
 - [x] 批量指令
-- [ ] 自定义终端主题
+- [x] 终端主题背景图
 
 ![实例面板](./doc_images/merge.gif)
 
@@ -109,9 +107,9 @@ curl -o- https://mirror.ghproxy.com/https://raw.githubusercontent.com/chaos-zhu/
 3. `yarn dev`启动项目
 4. web: `http://localhost:18090/`
 
-## Q&A
+## QA
 
-- [Q&A](./Q%26A.md)
+- [QA](./Q%26A.md)
 
 ## 捐赠
 

@@ -57,30 +57,40 @@
                 >
               </div>
             </tooltip>
-            <tooltip content="上传到当前目录">
+
+            <el-dropdown trigger="click">
               <div class="img">
                 <img
                   src="@/assets/image/system/upload.png"
                   style=" width: 19px; height: 19px; "
-                  @click="uploadFileRef.click()"
                 >
                 <input
                   ref="uploadFileRef"
                   type="file"
                   style="display: none;"
                   multiple
-                  @change="handleUpload"
+                  @change="handleUploadFiles"
+                >
+                <input
+                  ref="uploadDirRef"
+                  style="display: none;"
+                  type="file"
+                  webkitdirectory
+                  directory
+                  @change="handleUploadDir"
                 >
               </div>
-            </tooltip>
-            <!-- <tooltip content="搜索">
-              <div class="img">
-                <img
-                  src="@/assets/image/system/search.png"
-                  style="width: 20px; height: 20px; margin-top: 1px;"
-                >
-              </div>
-            </tooltip> -->
+              <template #dropdown>
+                <el-dropdown-menu>
+                  <el-dropdown-item @click="uploadFileRef.click()">
+                    上传文件
+                  </el-dropdown-item>
+                  <el-dropdown-item @click="uploadDirRef.click()">
+                    上传文件夹
+                  </el-dropdown-item>
+                </el-dropdown-menu>
+              </template>
+            </el-dropdown>
           </div>
           <div class="filter-input">
             <el-input
@@ -181,6 +191,7 @@ const adjustRef = ref(null)
 const sftpTabContainerRef = ref(null)
 const childDirRef = ref(null)
 const uploadFileRef = ref(null)
+const uploadDirRef = ref(null)
 
 const token = computed(() => $store.token)
 const curPath = computed(() => paths.value.join('/').replace(/\/{2,}/g, '/'))
@@ -281,12 +292,17 @@ const connectSftp = () => {
 }
 
 const listenSftp = () => {
-  socket.value.on('dir_ls', (dirLs) => {
+  socket.value.on('dir_ls', (dirLs, path) => {
     childDir.value = sortDirTree(dirLs)
     childDirLoading.value = false
+    // 格式化path为当前目录
+    let formatPath = path.split('/').filter(item => item)
+    formatPath.unshift('/')
+    // console.log('formatPath:', formatPath)
+    paths.value = formatPath
   })
   socket.value.on('not_exists_dir', (errMsg) => {
-    $message.error(errMsg)
+    if (errMsg) $message.error(errMsg)
     childDirLoading.value = false
   })
   socket.value.on('rm_success', (res) => {
@@ -320,6 +336,7 @@ const listenSftp = () => {
 }
 
 const openRootChild = (item) => {
+  if (showFileProgress.value) return $message.warning('需等待当前任务完成')
   const { name, type } = item
   if (isDir(type)) {
     childDirLoading.value = true
@@ -336,6 +353,7 @@ const openRootChild = (item) => {
 }
 
 const openTarget = (item) => {
+  if (showFileProgress.value) return $message.warning('需等待当前任务完成')
   const { name, type, size } = item
   if (isDir(type)) {
     paths.value.push(name)
@@ -370,6 +388,7 @@ const selectFile = (item) => {
 }
 
 const handleReturn = () => {
+  if (showFileProgress.value) return $message.warning('需等待当前任务完成')
   if (paths.value.length === 1) return
   paths.value.pop()
   openDir()
@@ -380,6 +399,7 @@ const handleRefresh = () => {
 }
 
 const handleDownload = () => {
+  if (showFileProgress.value) return $message.warning('需等待当前任务完成')
   if (curTarget.value === null) return $message.warning('先选择一个文件')
   const { name, size, type } = curTarget.value
   if (isDir(type)) return $message.error('暂不支持下载文件夹')
@@ -402,6 +422,7 @@ const handleDownload = () => {
 }
 
 const handleDelete = () => {
+  if (showFileProgress.value) return $message.warning('需等待当前任务完成')
   if (curTarget.value === null) return $message.warning('先选择一个文件(夹)')
   const { name, type } = curTarget.value
   $messageBox.confirm(`确认删除：${ name }`, 'Warning', {
@@ -419,44 +440,72 @@ const handleDelete = () => {
   })
 }
 
-const handleUpload = async (event) => {
+const handleUploadFiles = async (event) => {
   if (showFileProgress.value) return $message.warning('需等待当前任务完成')
   let { files } = event.target
+
   for (let file of files) {
     try {
-      await uploadFile(file)
+      const targetFilePath = getPath(file.name)
+      await uploadFile(file, targetFilePath)
     } catch (error) {
-      $message.error(error)
+      $message.error(`${ file.name }上传失败: ${ error }`)
     }
   }
   uploadFileRef.value = null
 }
 
-const uploadFile = (file) => {
+const handleUploadDir = async (event) => {
+  if (showFileProgress.value) return $message.warning('需等待当前任务完成')
+  let { files } = event.target
+  if(files.length === 0) return $message.warning('不允许上传空文件夹')
+  files = Array.from(files)
+  // console.log(files)
+  // 文件夹可能嵌套, 需先创建文件夹
+  let foldersName = files.map(file => file.webkitRelativePath.split('/').slice(0, -1).join('/'))
+  if (foldersName.length === 0) return $message.warning('不允许上传空文件夹')
+  // console.log(foldersName)
+  let targetDirPath = curPath.value
+  socket.value.emit('create_remote_dir', { targetDirPath, foldersName })
+  socket.value.once('create_remote_dir_exists', (res) => {
+    $message.error(res)
+    uploadDirRef.value = null
+  })
+  socket.value.once('create_remote_dir_success', async () => {
+    for (let [index, file,] of files.entries()) {
+      let fullFilePath = getPath(`${ foldersName[index] }/${ file.name }`)
+      console.log('fullFilePath: ', fullFilePath)
+      try {
+        await uploadFile(file, fullFilePath)
+      } catch (error) {
+        $message.error(`${ file.name }上传失败: ${ error }`)
+      }
+    }
+    uploadDirRef.value = null
+  })
+}
+
+const uploadFile = (file, targetFilePath) => {
   return new Promise((resolve, reject) => {
     if (!file) return reject('file is not defined')
-    if ((file.size / 1024 / 1024) > 1000) {
-      $message.warn('用网页传这么大文件你是认真的吗?')
-    }
-    let reader = new
-    FileReader()
+    let reader = new FileReader()
     reader.onload = async () => {
       const { name } = file
-      const fullPath = getPath(name)
-      const targetPath = curPath.value
+      const targetDirPath = curPath.value
       curUploadFileName.value = name
-      socket.value.emit('create_cache_dir', { targetPath, name })
+      const size = file.size
+      if (size === 0) return reject('文件大小为0KB, 无法上传')
+      socket.value.emit('create_cache_dir', { targetDirPath, name })
       socket.value.once('create_cache_success', async () => {
         let start = 0
         let end = 0
         const range = 1024 * 512 // 每段512KB
-        const size = file.size
         let fileIndex = 0
         let multipleFlag = false
         try {
           upFileProgress.value = 0
           showFileProgress.value = true
-          childDirLoading.value = true
+          // childDirLoading.value = true
           const totalSliceCount = Math.ceil(size / range)
           while (end < size) {
             fileIndex++
@@ -466,7 +515,7 @@ const uploadFile = (file) => {
             await uploadSliceFile({ name, sliceFile, fileIndex })
             upFileProgress.value = parseInt((fileIndex / totalSliceCount * 100) / 2)
           }
-          socket.value.emit('up_file_slice_over', { name, fullPath, range, size })
+          socket.value.emit('up_file_slice_over', { name, targetFilePath, range, size })
           socket.value.once('up_file_success', () => {
             if (multipleFlag) return
             handleRefresh()
@@ -517,15 +566,19 @@ const uploadSliceFile = (fileInfo) => {
   })
 }
 
-const openDir = () => {
+const openDir = (path = '', tips = true) => {
   childDirLoading.value = true
   curTarget.value = null
-  socket.value.emit('open_dir', curPath.value)
+  socket.value.emit('open_dir', path || curPath.value, tips)
 }
 
 const getPath = (name = '') => {
   return curPath.value.length === 1 ? `/${ name }` : `${ curPath.value }/${ name }`
 }
+
+defineExpose({
+  openDir
+})
 
 </script>
 

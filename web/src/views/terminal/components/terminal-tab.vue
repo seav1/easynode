@@ -1,9 +1,9 @@
 <template>
-  <div ref="terminalRefs" class="terminal_tab_container" />
+  <div ref="terminalRef" class="terminal_tab_container" />
 </template>
 
 <script setup>
-import { ref, onMounted, computed, onBeforeUnmount, getCurrentInstance } from 'vue'
+import { ref, onMounted, computed, onBeforeUnmount, getCurrentInstance, watch, nextTick } from 'vue'
 import { Terminal } from '@xterm/xterm'
 import '@xterm/xterm/css/xterm.css'
 import { FitAddon } from '@xterm/addon-fit'
@@ -19,10 +19,18 @@ const props = defineProps({
   host: {
     required: true,
     type: String
+  },
+  theme: {
+    required: true,
+    type: Object
+  },
+  background: {
+    required: true,
+    type: String
   }
 })
 
-const emit = defineEmits(['inputCommand',])
+const emit = defineEmits(['inputCommand', 'cdCommand',])
 
 const socket = ref(null)
 const term = ref(null)
@@ -31,9 +39,34 @@ const timer = ref(null)
 const fitAddon = ref(null)
 const searchBar = ref(null)
 const isManual = ref(false)
-const terminalRefs = ref(null)
+const terminal = ref(null)
+const terminalRef = ref(null)
 
 const token = computed(() => $store.token)
+const theme = computed(() => props.theme)
+const background = computed(() => props.background)
+
+watch(theme, () => {
+  nextTick(() => {
+    if (!background.value) terminal.value.options.theme = theme.value
+    else terminal.value.options.theme = { ...theme.value, background: '#00000080' }
+  })
+})
+
+watch(background, (newVal) => {
+  nextTick(() => {
+    if (newVal) {
+      // terminal.value.options.theme.background = '#00000080'
+      terminal.value.options.theme = { ...theme.value, background: '#00000080' }
+      terminalRef.value.style.backgroundImage = `url(${ background.value })`
+      terminalRef.value.style.backgroundImage = `url(${ background.value })`
+      // terminalRef.value.style.backgroundImage = `linear-gradient(rgba(0, 0, 0, 0.15), rgba(0, 0, 0, 0.15)), url(${ background.value })`
+    } else {
+      terminal.value.options.theme = theme.value
+      terminalRef.value.style.backgroundImage = null
+    }
+  })
+}, { immediate: true })
 
 const getCommand = async () => {
   let { data } = await $api.getCommand(props.host)
@@ -117,7 +150,7 @@ const reConnect = () => {
 }
 
 const createLocalTerminal = () => {
-  let terminal = new Terminal({
+  let terminalInstance = new Terminal({
     rendererType: 'dom',
     bellStyle: 'sound',
     convertEol: true,
@@ -126,20 +159,22 @@ const createLocalTerminal = () => {
     fontSize: 18,
     minimumContrastRatio: 7,
     allowTransparency: true,
-    theme: {
-      foreground: '#ECECEC',
-      background: '#000000', // 'transparent',
-      // cursor: 'help',
-      selection: '#ff9900',
-      lineHeight: 20
-    }
+    theme: theme.value
+    // {
+    //   foreground: '#ECECEC',
+    //   background: '#000000', // 'transparent',
+    //   // cursor: 'help',
+    //   selection: '#ff9900',
+    //   lineHeight: 20
+    // }
   })
-  term.value = terminal
-  terminal.open(terminalRefs.value)
-  terminal.writeln('\x1b[1;32mWelcome to EasyNode terminal\x1b[0m.')
-  terminal.writeln('\x1b[1;32mAn experimental Web-SSH Terminal\x1b[0m.')
-  terminal.focus()
+  term.value = terminalInstance
+  terminalInstance.open(terminalRef.value)
+  terminalInstance.writeln('\x1b[1;32mWelcome to EasyNode terminal\x1b[0m.')
+  terminalInstance.writeln('\x1b[1;32mAn experimental Web-SSH Terminal\x1b[0m.')
+  terminalInstance.focus()
   onSelectionChange()
+  terminal.value = terminalInstance
 }
 
 const onResize = () => {
@@ -194,14 +229,76 @@ const onSelectionChange = () => {
   })
 }
 
+const terminalText = ref(null)
+const enterTimer = ref(null)
+
+function filterAnsiSequences(str) {
+  // 使用正则表达式移除ANSI转义序列
+  // return str.replace(/\x1b\[[0-9;]*m|\x1b\[?[\d;]*[A-HJKSTfmin]/g, '')
+  // eslint-disable-next-line
+  return str.replace(/\x1b\[[0-9;]*[mGK]|(\x1b\][0-?]*[0-7;]*\x07)|(\x1b[\[\]()#%;][0-9;?]*[0-9A-PRZcf-ntqry=><])/g, '')
+}
+
+// 处理 Backspace，删除前一个字符
+function applyBackspace(text) {
+  let result = []
+  for (let i = 0; i < text.length; i++) {
+    if (text[i] === '\b') {
+      if (result.length > 0) {
+        result.pop()
+      }
+    } else {
+      result.push(text[i])
+    }
+  }
+  return result.join('')
+}
+
+function extractLastCdPath(text) {
+  const regex = /cd\s+([^\s]+)(?=\s|$)/g
+  let lastMatch
+  let match
+  regex.lastIndex = 0
+  while ((match = regex.exec(text)) !== null) {
+    lastMatch = match
+  }
+  return lastMatch ? lastMatch[1] : null
+}
+
 const onData = () => {
   socket.value.on('output', (str) => {
     term.value.write(str)
+    terminalText.value += str
+    // console.log(terminalText.value)
   })
   term.value.onData((key) => {
     let acsiiCode = key.codePointAt()
     if (acsiiCode === 22) return handlePaste()
     if (acsiiCode === 6) return searchBar.value.show()
+    enterTimer.value = setTimeout(() => {
+      if (enterTimer.value) clearTimeout(enterTimer.value)
+      if (key === '\r') { // Enter
+        let cleanText = applyBackspace(filterAnsiSequences(terminalText.value))
+        const lines = cleanText.split('\n')
+        // console.log('lines: ', lines)
+        const lastLine = lines[lines.length - 1].trim()
+        // console.log('lastLine: ', lastLine)
+        // 截取最后一个提示符后的内容（'$'或'#'后的内容）
+        const commandStartIndex = lastLine.lastIndexOf('#') + 1
+        const commandText = lastLine.substring(commandStartIndex).trim()
+        // console.log('Processed command: ', commandText)
+        // eslint-disable-next-line
+        const cdPath = extractLastCdPath(commandText)
+
+        if (cdPath) {
+          console.log('cd command path:', cdPath)
+          let firstChar = cdPath.charAt(0)
+          if (!['/',].includes(firstChar)) return console.log('err fullpath:', cdPath) // 后端依赖不支持 '~'
+          emit('cdCommand', cdPath)
+        }
+        terminalText.value = ''
+      }
+    })
     emit('inputCommand', key)
     socket.value.emit('input', key)
   })
@@ -253,9 +350,8 @@ defineExpose({
 .terminal_tab_container {
   min-height: 200px;
 
-  // background-image: url('@/assets/bg.jpg');
-  // background-size: cover;
-  // background-repeat: no-repeat;
+  background-size: 100% 100%;
+  background-repeat: no-repeat;
 
   :deep(.xterm) {
     height: 100%;

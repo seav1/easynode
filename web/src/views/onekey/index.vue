@@ -40,7 +40,7 @@
       </el-table-column>
       <el-table-column prop="command" label="指令" show-overflow-tooltip>
         <template #default="{ row }">
-          <span style="letter-spacing: 2px;background: rgba(227, 230, 235, 0.7);color: rgb(54, 52, 52);"> {{ row.command }} </span>
+          <span> {{ row.command }} </span>
         </template>
       </el-table-column>
       <el-table-column prop="status" label="执行结果" show-overflow-tooltip>
@@ -53,7 +53,7 @@
       <el-table-column label="操作">
         <template #default="{ row }">
           <el-button
-            v-if="!row.pendding"
+            v-if="!row.pending"
             v-show="row.id !== 'own'"
             :loading="row.loading"
             type="danger"
@@ -174,7 +174,7 @@ const loading = ref(false)
 const formVisible = ref(false)
 const socket = ref(null)
 let recordList = ref([])
-let penddingRecord = ref([])
+let pendingRecord = ref([])
 let checkAll = ref(false)
 let indeterminate = ref(false)
 const updateFormRef = ref(null)
@@ -194,13 +194,13 @@ let isExecuting = computed(() => timeRemaining.value > 0)
 const hasConfigHostList = computed(() => hostList.value.filter(item => item.isConfig))
 
 const tableData = computed(() => {
-  return penddingRecord.value.concat(recordList.value).map(item => {
+  return pendingRecord.value.concat(recordList.value).map(item => {
     item.loading = false
     return item
   })
 })
 const expandRows = computed(() => {
-  let rows = tableData.value.filter(item => item.pendding).map(item => item.id)
+  let rows = tableData.value.filter(item => item.pending).map(item => item.id)
   return rows
 })
 
@@ -240,7 +240,7 @@ const createExecShell = (hosts = [], command = 'ls', timeout = 60) => {
     console.log('onekey socket已连接：', socket.value.id)
 
     socket.value.on('ready', () => {
-      penddingRecord.value = [] // 每轮执行前清空
+      pendingRecord.value = [] // 每轮执行前清空
     })
 
     socket.value.emit('create', { hosts, token: token.value, command, timeout })
@@ -249,8 +249,8 @@ const createExecShell = (hosts = [], command = 'ls', timeout = 60) => {
       loading.value = false
       if (Array.isArray(result) && result.length > 0) {
         // console.log('output', result)
-        result = result.map(item => ({ ...item, pendding: true }))
-        penddingRecord.value = result
+        result = result.map(item => ({ ...item, pending: true }))
+        pendingRecord.value = result
         nextTick(() => {
           document.querySelectorAll('.detail_content_box').forEach(container => {
             container.scrollTop = container.scrollHeight
@@ -267,8 +267,8 @@ const createExecShell = (hosts = [], command = 'ls', timeout = 60) => {
       })
       if (Array.isArray(result) && result.length > 0) {
         // console.log('output', result)
-        result = result.map(item => ({ ...item, pendding: true }))
-        penddingRecord.value = result
+        result = result.map(item => ({ ...item, pending: true }))
+        pendingRecord.value = result
       }
     })
     socket.value.on('create_fail', (reason) => {
@@ -374,7 +374,7 @@ function execOnekey() {
       if (hosts.length === 0) {
         return $message.error('请选择主机')
       }
-      await getOnekeyRecord() // 获取新纪录前会清空 penddingRecord，所以需要获取一次最新的list
+      await getOnekeyRecord() // 获取新纪录前会清空 pendingRecord，所以需要获取一次最新的list
       createExecShell(hosts, command, timeout)
       formVisible.value = false
     })
@@ -399,7 +399,7 @@ const handleRemoveAll = async () => {
   })
     .then(async () => {
       await $api.deleteOnekeyRecord('ALL')
-      penddingRecord.value = []
+      pendingRecord.value = []
       await getOnekeyRecord()
       $message.success('success')
     })
@@ -436,14 +436,13 @@ onActivated(async () => {
     position: sticky;
     top: 0;
     z-index: 1;
-    background-color: #fff;
   }
   .detail_content_box {
     max-height: 200px;
     overflow: auto;
     white-space: pre-line;
     line-height: 1.1;
-    background: rgba(227, 230, 235, .7);
+    // background: rgba(227, 230, 235, .7);
     padding: 25px;
     border-radius: 3px;
   }

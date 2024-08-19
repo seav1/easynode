@@ -47,8 +47,7 @@
               {{ groupName }}
             </div>
           </template>
-          <div class="host_card_container">
-            <!-- <HostCard
+          <!-- <HostCard
               v-for="(item, index) in hosts"
               :key="index"
               :host-info="item"
@@ -56,13 +55,12 @@
               @update-host="handleUpdateHost"
               @update-list="handleUpdateList"
             /> -->
-            <HostTable
-              ref="hostTableRefs"
-              :hosts="hosts"
-              @update-host="handleUpdateHost"
-              @update-list="handleUpdateList"
-            />
-          </div>
+          <HostTable
+            ref="hostTableRefs"
+            :hosts="hosts"
+            @update-host="handleUpdateHost"
+            @update-list="handleUpdateList"
+          />
         </el-collapse-item>
       </el-collapse>
     </div>
@@ -242,6 +240,9 @@ let hostFormClosed = () => {
   }
 
   .server_group_collapse {
+    :deep(.el-card__body) {
+      padding: 0;
+    }
     :deep(.el-collapse-item__header) {
       padding: 0 35px;
     }
@@ -252,9 +253,6 @@ let hostFormClosed = () => {
       line-height: 22px;
     }
 
-    .host_card_container {
-      padding-top: 15px;
-    }
     .or {
       color: var(--el-text-color-secondary);
       font-size: var(--el-font-size-base);

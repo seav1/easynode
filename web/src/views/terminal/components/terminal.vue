@@ -27,12 +27,18 @@
             </el-dropdown-menu>
           </template>
         </el-dropdown>
-        <!-- <el-dropdown trigger="click" max-height="50vh">
-          <span class="link_text">主题<el-icon><arrow-down /></el-icon></span>
+        <!-- <el-dropdown trigger="click">
+          <span class="link_text">分屏<el-icon><arrow-down /></el-icon></span>
           <template #dropdown>
             <el-dropdown-menu>
-              <el-dropdown-item v-for="(value, key) in themeList" :key="key" @click="handleChangeTheme(key)">
-                <span :style="{color: key === themeName ? 'var(--el-menu-active-color)' : ''}">{{ key }}</span>
+              <el-dropdown-item @click="handleFullScreen">
+                <span>双屏</span>
+              </el-dropdown-item>
+              <el-dropdown-item @click="handleFullScreen">
+                <span>三屏</span>
+              </el-dropdown-item>
+              <el-dropdown-item @click="handleFullScreen">
+                <span>四屏</span>
               </el-dropdown-item>
             </el-dropdown-menu>
           </template>
@@ -50,11 +56,6 @@
             </el-dropdown-menu>
           </template>
         </el-dropdown>
-        <!-- <el-dropdown trigger="click">
-          <span class="link_text">设置
-            <el-icon class="hidden_icon"><arrow-down /></el-icon>
-          </span>
-        </el-dropdown> -->
       </div>
       <div class="right_overview">
         <div class="switch_wrap">
@@ -119,12 +120,19 @@
           :closable="true"
           class="el_tab_pane"
         >
+          <template #label>
+            <div class="tab_label">
+              <span class="tab_status" :style="{ background: getStatusColor(item.status) }" />
+              <span>{{ item.name }}</span>
+            </div>
+          </template>
           <div class="tab_content_wrap" :style="{ height: mainHeight + 'px' }">
             <TerminalTab
               ref="terminalRefs"
-              :host="item.host"
+              :host-obj="item"
               :theme="themeObj"
               :background="terminalBackground"
+              :font-size="terminalFontSize"
               @input-command="terminalInput"
               @cd-command="cdCommand"
             />
@@ -149,6 +157,7 @@
       v-model:show="showSetting"
       v-model:themeName="themeName"
       v-model:background="terminalBackground"
+      v-model:font-size="terminalFontSize"
       @closed="showSetting = false"
     />
   </div>
@@ -163,8 +172,8 @@ import Sftp from './sftp.vue'
 import InputCommand from '@/components/input-command/index.vue'
 import HostForm from '../../server/components/host-form.vue'
 import TerminalSetting from './terminal-setting.vue'
-// import { randomStr } from '@utils/index.js'
 import themeList from 'xterm-theme'
+import { terminalStatusList } from '@/utils/enum'
 
 const { proxy: { $nextTick, $store, $message } } = getCurrentInstance()
 
@@ -191,7 +200,9 @@ const updateHostData = ref(null)
 const showSetting = ref(false)
 const themeName = ref(localStorage.getItem('themeName') || 'Afterglow')
 let localTerminalBackground = localStorage.getItem('terminalBackground')
-const terminalBackground = ref(localTerminalBackground === undefined ? '/01.png' : localTerminalBackground)
+const terminalBackground = ref(localTerminalBackground || '/terminal/01.png')
+let localTerminalFontSize = localStorage.getItem('terminalFontSize')
+const terminalFontSize = ref(Number(localTerminalFontSize) || 18)
 
 const terminalTabs = computed(() => props.terminalTabs)
 const terminalTabsLen = computed(() => props.terminalTabs.length)
@@ -208,6 +219,10 @@ watch(terminalBackground, (newVal) => {
   console.log('update terminalBackground:', newVal)
   localStorage.setItem('terminalBackground', newVal)
 })
+watch(terminalFontSize, (newVal) => {
+  console.log('update terminalFontSize:', newVal)
+  localStorage.setItem('terminalFontSize', newVal)
+})
 
 onMounted(() => {
   handleResizeTerminalSftp()
@@ -217,6 +232,10 @@ onMounted(() => {
 onBeforeUnmount(() => {
   window.removeEventListener('resize', handleResizeTerminalSftp)
 })
+
+const getStatusColor = (status) => {
+  return terminalStatusList.find(item => item.value === status)?.color || 'gray'
+}
 
 const handleUpdateList = async ({ host }) => {
   try {
@@ -246,7 +265,8 @@ const handleCommandHost = (host) => {
 }
 
 const handleExecScript = (scriptObj) => {
-  const { command } = scriptObj
+  let { command } = scriptObj
+  command += '\n'
   if (!isSyncAllSession.value) return handleInputCommand(command)
   terminalRefs.value.forEach(terminalRef => {
     terminalRef.inputCommand(command)
@@ -362,9 +382,8 @@ const handleInputCommand = async (command) => {
   height: 100%;
 
   :deep(.el-tabs__content) {
-    flex: 1;
-    width: 100%;
-    padding: 0 5px 5px 0;
+    // width: 100%;
+    padding: 0 0 5px 0;
   }
 
   :deep(.el-tabs--border-card) {
@@ -387,8 +406,6 @@ const handleInputCommand = async (command) => {
     padding: 0 15px;
     position: sticky;
     top: 0;
-    border-bottom: 1px solid #fff;
-    // background-color: #fff;
     background: var(--el-fill-color-light);
     color: var(--el-text-color-regular);
     z-index: 3;
@@ -444,6 +461,7 @@ const handleInputCommand = async (command) => {
     overflow: auto;
     display: flex;
     flex-direction: column;
+    border: var(--el-descriptions-table-border);
   }
 
   .terminals_sftp_wrap {
@@ -453,6 +471,20 @@ const handleInputCommand = async (command) => {
     display: flex;
     flex-direction: column;
     position: relative;
+    .tab_label {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      .tab_status {
+        display: inline-block;
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        margin-right: 5px;
+        transition: all 0.5s;
+        // background-color: var(--el-color-primary);
+      }
+    }
     .tab_content_wrap {
       display: flex;
       flex-direction: column;

@@ -28,10 +28,15 @@ module.exports = {
     quotes: ['error', 'single'], // 引号：single单引 double双引
     semi: ['error', 'never'], // 结尾分号：never禁止 always必须
     'comma-dangle': ['error', 'never'], // 对象拖尾逗号
+    'space-before-blocks': ['error', 'always'],
+    'space-in-parens': ['error', 'never'],
+    'keyword-spacing': ['error', { 'before': true, 'after': true }],
     'no-redeclare': ['error', { builtinGlobals: true }], // 禁止重复对象声明
     'no-multi-assign': 0,
     'no-restricted-globals': 0,
+    'no-case-declarations': 0,
     'space-before-function-paren': 0, // 函数定义时括号前面空格
+    'no-async-promise-executor': 0, // 允许在回调中使用async函数
     'one-var': 0, // 允许连续声明
     // 'no-undef': 0, // 允许未定义的变量【会使env配置无效】
     'linebreak-style': 0, // 检测CRLF/LF检测【默认LF】

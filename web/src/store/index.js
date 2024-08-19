@@ -15,7 +15,9 @@ const useStore = defineStore({
     HostStatusSocket: null,
     user: localStorage.getItem('user') || null,
     token: sessionStorage.getItem('token') || localStorage.getItem('token') || null,
-    title: ''
+    title: '',
+    isDark: false,
+    menuCollapse: localStorage.getItem('menuCollapse') === 'true'
   }),
   actions: {
     async setJwtToken(token, isSession = true) {
@@ -109,6 +111,63 @@ const useStore = defineStore({
       socketInstance.on('connect_error', (message) => {
         console.error('clients websocket 连接出错: ', message)
       })
+    },
+    setTheme(isDark, animate = true) {
+      // $store.setThemeConfig({ isDark: val })
+      const html = document.documentElement
+      let setAttribute = () => {
+        if (isDark) html.setAttribute('class', 'dark')
+        else html.setAttribute('class', '')
+        localStorage.setItem('isDark', isDark)
+        this.$patch({ isDark })
+      }
+      if(animate) {
+        let transition = document.startViewTransition(() => {
+          document.documentElement.classList.toggle('dark')
+        })
+        transition.ready.then(() => {
+          const centerX = 0
+          const centerY = 0
+          const radius = Math.hypot(
+            Math.max(centerX, window.innerWidth - centerX),
+            Math.max(centerY, window.innerHeight - centerY)
+          )
+          // console.log('radius: ', innerWidth, innerHeight, radius)
+          // 自定义动画
+          document.documentElement.animate(
+            {
+              clipPath: [
+                `circle(0% at ${ centerX }px ${ centerY }px)`,
+                `circle(${ radius }px at ${ centerX }px ${ centerY }px)`,
+              ]
+            },
+            {
+              duration: 500,
+              pseudoElement: '::view-transition-new(root)'
+            }
+          )
+          setAttribute()
+        })
+      } else {
+        setAttribute()
+      }
+    },
+    setDefaultTheme() {
+      let isDark = false
+      if (localStorage.getItem('isDark')) {
+        isDark = localStorage.getItem('isDark') === 'true' ? true : false
+      } else {
+        const prefersDarkScheme = window.matchMedia('(prefers-color-scheme: dark)')
+        const systemTheme = prefersDarkScheme.matches
+        console.log('当前系统使用的是深色模式：', systemTheme ? '是' : '否')
+        isDark = systemTheme
+      }
+      this.setTheme(isDark, false)
+    },
+    setMenuCollapse() {
+      let newState = !this.menuCollapse
+      localStorage.setItem('menuCollapse', newState)
+      this.$patch({ menuCollapse: newState })
     }
   }
 })

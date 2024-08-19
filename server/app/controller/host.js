@@ -1,4 +1,5 @@
-const { readHostList, writeHostList, RSADecryptSync, AESEncryptSync, AESDecryptSync } = require('../utils')
+const { readHostList, writeHostList } = require('../utils/storage')
+const { RSADecryptSync, AESEncryptSync, AESDecryptSync } = require('../utils/encrypt')
 
 async function getHostList({ res }) {
   // console.log('get-host-list')
@@ -41,7 +42,7 @@ async function addHost({
     const clearSSHKey = await AESDecryptSync(record[authType], clearTempKey)
     console.log(`${ authType }原密文: `, clearSSHKey)
     record[authType] = await AESEncryptSync(clearSSHKey)
-    console.log(`${ authType }__commonKey加密存储: `, record[authType])
+    // console.log(`${ authType }__commonKey加密存储: `, record[authType])
   }
   hostList.push(record)
   await writeHostList(hostList)

@@ -1,3 +1,59 @@
+## [2.2.2](https://github.com/chaos-zhu/easynode/releases) (2024-08-19)
+
+### Features
+
+* 支持菜单栏的折叠与展开 ✔
+* 优化终端回显 ✔
+* 优化暗黑模式下滚动条样式 ✔
+
+## [2.2.1](https://github.com/chaos-zhu/easynode/releases) (2024-08-18)
+
+### Features
+
+* 支持暗黑主题切换 ✔
+* 批量脚本下发执行结果通知重复的bug ✔
+* 修复交换内存占比的bug ✔
+* 优化服务端代码引用 ✔
+* 修复Code scanning提到的依赖风险 ✔
+
+## [2.2.0](https://github.com/chaos-zhu/easynode/releases) (2024-08-17)
+
+### Features
+
+* 重构通知模块 ✔
+* 支持大多数邮箱SMTP配置通知 ✔
+* 支持Server酱通知 ✔
+* 新增批量指令执行结果提醒 ✔
+* 新增终端登录与登录状态提醒 ✔
+* 新增服务器到期提醒 ✔
+* 修复上传同一个文件无法选择的bug ✔
+* 修复终端连接失败抛出异常的bug ✔
+* 调整客户端安装脚本 ✔
+
+## [2.1.9](https://github.com/chaos-zhu/easynode/releases) (2024-08-16)
+
+### Features
+
+* 过滤客户端检测更新 ✔
+
+## [2.1.8](https://github.com/chaos-zhu/easynode/releases) (2024-08-15)
+
+### Features
+
+* 终端连接逻辑重写,断线自动重连 ✔
+* 终端连接状态展示 ✔
+* 终端支持选中复制&右键粘贴 ✔
+* 终端设置支持字体大小 ✔
+* 终端默认字体样式更改为`Cascadia Code` ✔
+
+## [2.1.7](https://github.com/chaos-zhu/easynode/releases) (2024-08-14)
+
+### Features
+
+* 客户端监控服务支持swap内存交换回传 ✔
+* 面板支持展示swap内存交换状态展示 ✔
+* 添加初始账户登录警告 ✔
+
 ## [2.1.6](https://github.com/chaos-zhu/easynode/releases) (2024-08-13)
 
 ### Features

@@ -1,5 +1,5 @@
 <template>
-  <el-card shadow="always" class="host_card">
+  <div class="host_card">
     <el-table
       ref="tableRef"
       :data="hosts"
@@ -13,9 +13,10 @@
           <!-- { monitorData: { connect, cpuInfo, memInfo, driveInfo, ipInfo, netstatInfo } } -->
           <el-descriptions
             v-if="row.monitorData?.connect"
-            title="实例信息"
+            title=""
             :column="5"
             direction="vertical"
+            class="host_info"
           >
             <el-descriptions-item label="CPU" width="35%">
               {{ `${row.monitorData?.cpuInfo?.cpuModel}-${row.monitorData?.cpuInfo?.cpuCount}-(${row.monitorData?.cpuInfo?.cpuUsage}%)` }}
@@ -93,7 +94,7 @@
         </template>
       </el-table-column>
     </el-table>
-  </el-card>
+  </div>
 </template>
 
 <script setup>
@@ -146,7 +147,7 @@ const handleOnekey = async (row) => {
 }
 
 let defaultSortLocal = localStorage.getItem('host_table_sort')
-defaultSortLocal = defaultSortLocal ? JSON.parse(defaultSortLocal) : { prop: 'index', order: 'ascending' }
+defaultSortLocal = defaultSortLocal ? JSON.parse(defaultSortLocal) : { prop: 'index', order: null } // 'ascending' or 'descending'
 let defaultSort = ref(defaultSortLocal)
 
 const handleSortChange = (sortObj) => {
@@ -194,27 +195,17 @@ const handleRemoveHost = async ({ host }) => {
 
 <style lang="scss" scoped>
 .host_card {
-  margin: -10px 30px 0 30px;
-  transition: all 0.5s;
-  position: relative;
-
-  // &:hover {
-  //   box-shadow: 0px 0px 15px rgba(6, 30, 37, 0.5);
-  // }
-
-  :deep(.el-descriptions__title) {
-    display: none;
-  }
-  :deep(.el-descriptions) {
-    padding: 0 25px;
-  }
-
+  margin: 0px 10px;
+  // transition: all 0.5s;
   .no_client_data {
     font-size: 14px;
     font-weight: normal;
     line-height: 23px;
     text-align: center;
     color: var(--el-color-warning);;
+  }
+  .host_info {
+    padding: 0 20px;
   }
 }
 </style>

@@ -1,6 +1,9 @@
 const jwt = require('jsonwebtoken')
 const axios = require('axios')
-const { getNetIPInfo, readKey, writeKey, RSADecryptSync, AESEncryptSync, SHA1Encrypt, sendEmailToConfList, getNotifySwByType } = require('../utils')
+const { asyncSendNotice } = require('../utils/notify')
+const { readKey, writeKey } = require('../utils/storage')
+const { RSADecryptSync, AESEncryptSync, SHA1Encrypt } = require('../utils/encrypt')
+const { getNetIPInfo } = require('../utils/tools')
 
 const getpublicKey = async ({ res }) => {
   let { publicKey: data } = await readKey()
@@ -24,9 +27,8 @@ const login = async ({ res, request }) => {
   loginErrTotal++
   if (loginErrCount >= allowErrCount) {
     const { ip, country, city } = await getNetIPInfo(clientIp)
-    // 发送通知&禁止登录
-    let sw = getNotifySwByType('err_login')
-    if (sw) sendEmailToConfList('登录错误提醒', `重新登录次数: ${ loginErrTotal }<br/>地点：${ country + city }<br/>IP: ${ ip }`)
+    // 异步发送通知&禁止登录
+    asyncSendNotice('err_login', '登录错误提醒', `错误登录次数: ${ loginErrTotal }\n地点：${ country + city }\nIP: ${ ip }`)
     forbidLogin = true
     loginErrCount = 0
 
@@ -82,8 +84,7 @@ const beforeLoginHandler = async (clientIp, jwtExpires) => {
   consola.info('登录成功:', new Date(), { ip, country, city })
 
   // 邮件登录通知
-  let sw = getNotifySwByType('login')
-  if (sw) sendEmailToConfList('登录提醒', `地点：${ country + city }<br/>IP: ${ ip }`)
+  asyncSendNotice('login', '登录提醒', `地点：${ country + city }\nIP: ${ ip }`)
 
   global.loginRecord.unshift(clientIPInfo)
   if (global.loginRecord.length > 10) global.loginRecord = global.loginRecord.slice(0, 10)
@@ -103,8 +104,7 @@ const updatePwd = async ({ res, request }) => {
   keyObj.pwd = newPwd
   await writeKey(keyObj)
 
-  let sw = getNotifySwByType('updatePwd')
-  if (sw) sendEmailToConfList(`登录信息修改提醒, 新用户名: ${ newLoginName }`)
+  asyncSendNotice('updatePwd', '用户密码修改提醒', `原用户名：${ user }\n更新用户名: ${ newLoginName }`)
 
   res.success({ data: true, msg: 'success' })
 }

@@ -83,7 +83,7 @@ import { RSAEncrypt } from '@utils/index.js'
 // import useStore from '@store/index'
 
 // const router = useRouter()
-const { proxy: { $store, $api, $message, $router } } = getCurrentInstance()
+const { proxy: { $store, $api, $message, $messageBox, $router } } = getCurrentInstance()
 
 const loginFormRefs = ref(null)
 const isSession = ref(true)
@@ -100,6 +100,7 @@ const rules = reactive({
 })
 
 const handleLogin = () => {
+  console.log(loginForm)
   loginFormRefs.value.validate().then(() => {
     let { jwtExpires, loginName, pwd } = loginForm
     jwtExpires = isSession.value ? '12h' : `${ jwtExpires }h`
@@ -115,7 +116,18 @@ const handleLogin = () => {
         $store.setJwtToken(token, isSession.value)
         $store.setUser(loginName)
         $message.success({ message: msg || 'success', center: true })
-        $router.push('/')
+        if (loginName === 'admin' && pwd === 'admin') {
+          $messageBox.confirm('请立即修改初始用户名及密码！防止恶意扫描！', '警告', {
+            confirmButtonText: '确定',
+            showCancelButton: false,
+            type: 'warning'
+          })
+            .then(async () => {
+              $router.push('/setting')
+            })
+        } else {
+          $router.push('/')
+        }
       })
       .finally(() => {
         loading.value = false
@@ -150,7 +162,6 @@ onMounted(async () => {
     padding: 20px;
     border-radius: 6px;
     background-color: #ffffff;
-    border: 1px solid #ebedef;
 
     h2 {
       text-align: center;

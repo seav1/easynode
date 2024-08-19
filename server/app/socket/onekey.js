@@ -1,6 +1,10 @@
 const { Server } = require('socket.io')
 const { Client: SSHClient } = require('ssh2')
-const { readHostList, readSSHRecord, verifyAuthSync, AESDecryptSync, writeOneKeyRecord, shellThrottle } = require('../utils')
+const { asyncSendNotice } = require('../utils/notify')
+const { readSSHRecord, readHostList, writeOneKeyRecord } = require('../utils/storage')
+const { verifyAuthSync } = require('../utils/verify-auth')
+const { shellThrottle } = require('../utils/tools')
+const { AESDecryptSync } = require('../utils/encrypt')
 
 const execStatusEnum = {
   connecting: '连接中',
@@ -49,7 +53,7 @@ function execShell(socket, sshClient, curRes, resolve) {
     }
     stream
       .on('close', async () => {
-        // ssh连接关闭后，再执行一次输出，防止最后一次节流函数发生在延迟时间内导致终端的输出数据丢失
+        // shell关闭后，再执行一次输出，防止最后一次节流函数发生在延迟时间内导致终端的输出数据丢失
         await throttledDataHandler.last() // 等待最后一次节流函数执行完成，再执行一次数据输出
         // console.log('onekey终端执行完成, 关闭连接: ', curRes.host)
         if (curRes.status === execStatusEnum.executing) {
@@ -102,8 +106,7 @@ module.exports = (httpServer) => {
         return
       }
       setTimeout(() => {
-        // 超时未执行完成，断开连接
-        disconnectAllExecClient()
+        // 超时未执行完成，强制断开连接
         const { connecting, executing } = execStatusEnum
         execResult.forEach(item => {
           // 连接中和执行中的状态设定为超时
@@ -111,8 +114,11 @@ module.exports = (httpServer) => {
             item.status = execStatusEnum.execTimeout
           }
         })
-        socket.emit('timeout', { reason: `执行超时,已强制终止执行 - 超时时间${ timeout }秒`, result: execResult })
+        let reason = `执行超时,已强制终止执行 - 超时时间${ timeout }秒`
+        asyncSendNotice('onekey_complete', '批量指令执行超时', reason)
+        socket.emit('timeout', { reason, result: execResult })
         socket.disconnect()
+        disconnectAllExecClient()
       }, timeout * 1000)
       console.log('hosts:', hosts)
       // console.log('token:', token)
@@ -125,7 +131,8 @@ module.exports = (httpServer) => {
       socket.emit('ready')
       let execPromise = targetHostsInfo.map((hostInfo, index) => {
         // eslint-disable-next-line no-async-promise-executor
-        return new Promise(async (resolve) => {
+        return new Promise(async (resolve, reject) => {
+          setTimeout(() => reject('执行超时'), timeout * 1000)
           let { authType, host, port, username } = hostInfo
           let authInfo = { host, port, username }
           let curRes = { command, host, name: hostInfo.name, result: '', status: execStatusEnum.connecting, date: Date.now() - (targetHostsInfo.length - index) } // , execStatusEnum
@@ -171,10 +178,15 @@ module.exports = (httpServer) => {
           }
         })
       })
-      await Promise.all(execPromise)
-      consola.success('onekey执行完成')
-      socket.emit('exec_complete')
-      socket.disconnect()
+      try {
+        await Promise.all(execPromise)
+        consola.success('onekey执行完成')
+        socket.emit('exec_complete')
+        asyncSendNotice('onekey_complete', '批量指令执行完成', '请登录面板查看执行结果')
+        socket.disconnect()
+      } catch (error) {
+        consola.error('onekey执行失败', error)
+      }
     })
 
     socket.on('disconnect', async (reason) => {

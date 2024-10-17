@@ -31,12 +31,11 @@
 ### docker镜像
 
 ```shell
-docker run -d --net=host --restart=always -v /root/easynode/db:/easynode/app/db chaoszhu/easynode
-# 容器支持使用-p 8082:8082映射端口, 但无法记录登录IP
+docker run -d -p 8082:8082 --name=easynode --restart=always -v /root/easynode/db:/easynode/app/db chaoszhu/easynode
 ```
 环境变量：
 - `DEBUG`: 启动debug日志 0：关闭 1：开启, 默认关闭
-- `ALLOWED_IPS`: 可以访问服务的IP白名单, 多个使用逗号分隔, 例如: `-e ALLOWED_IPS=127.0.0.1,127.0.0.2`
+- `ALLOWED_IPS`: 可以访问服务的IP白名单, 多个使用逗号分隔, 支持填写部分ip前缀, 例如: `-e ALLOWED_IPS=127.0.0.1,196.168`
 
 ### 手动部署
 
@@ -59,20 +58,24 @@ pm2 start index.js --name easynode-server
 
 ## 监控服务安装
 
-- 监控服务用于实时向服务端推送**系统、公网IP、CPU、内存、硬盘、网卡**等基础信息，不安装不影响使用面板，但是无法实时同步cpu占用、实时网速、硬盘容量等有用信息。
+- 监控服务用于实时向服务端推送**系统、公网IP、CPU、内存、硬盘、网卡**等基础信息，不安装不影响使用面板，但是无法实时同步cpu占用、实时网速、硬盘容量等实用信息。
 
-- 占用端口：**22022**
+- 默认端口：**22022**
 
 > 安装
 
 ```shell
-curl -o- https://mirror.ghproxy.com/https://raw.githubusercontent.com/chaos-zhu/easynode/main/client/easynode-client-install.sh | bash
+# 使用默认端口22022安装
+curl -o- https://ghp.ci/https://raw.githubusercontent.com/chaos-zhu/easynode/main/client/easynode-client-install.sh | bash
+
+# 使用自定义端口安装, 例如54321
+curl -o- https://ghp.ci/https://raw.githubusercontent.com/chaos-zhu/easynode/main/client/easynode-client-install.sh | bash -s -- 54321
 ```
 
 > 卸载
 
 ```shell
-curl -o- https://mirror.ghproxy.com/https://raw.githubusercontent.com/chaos-zhu/easynode/main/client/easynode-client-uninstall.sh | bash
+curl -o- https://ghp.ci/https://raw.githubusercontent.com/chaos-zhu/easynode/main/client/easynode-client-uninstall.sh | bash
 ```
 
 > 查看监控服务状态：`systemctl status easynode-client`

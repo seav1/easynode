@@ -1,7 +1,10 @@
 import { io } from 'socket.io-client'
 import { defineStore, acceptHMRUpdate } from 'pinia'
 import $api from '@/api'
+import config from '@/config'
 // import ping from '@/utils/ping'
+
+const { defaultClientPort } = config
 
 const useStore = defineStore({
   id: 'global',
@@ -21,7 +24,7 @@ const useStore = defineStore({
   }),
   actions: {
     async setJwtToken(token, isSession = true) {
-      if(isSession) sessionStorage.setItem('token', token)
+      if (isSession) sessionStorage.setItem('token', token)
       else localStorage.setItem('token', token)
       this.$patch({ token })
     },
@@ -42,7 +45,7 @@ const useStore = defineStore({
       await this.getHostList()
       await this.getSSHList()
       await this.getScriptList()
-      this.wsHostStatus()
+      this.wsClientsStatus()
     },
     async getHostList() {
       let { data: newHostList } = await $api.getHostList()
@@ -73,14 +76,14 @@ const useStore = defineStore({
     //   setInterval(() => {
     //     this.hostList.forEach((item) => {
     //       const { host } = item
-    //       ping(`http://${ host }:${ this.$clientPort }`)
+    //       ping(`http://${ host }:${ 22022 }`)
     //         .then((res) => {
     //           item.ping = res
     //         })
     //     })
     //   }, 2000)
     // },
-    async wsHostStatus() {
+    async wsClientsStatus() {
       // if (this.HostStatusSocket) this.HostStatusSocket.close()
       let socketInstance = io(this.serviceURI, {
         path: '/clients',
@@ -96,8 +99,8 @@ const useStore = defineStore({
         socketInstance.on('clients_data', (data) => {
           // console.log(data)
           this.hostList.forEach(item => {
-            const { host } = item
-            return Object.assign(item, { monitorData: Object.freeze(data[host]) })
+            const { host, clientPort } = item
+            return Object.assign(item, { monitorData: Object.freeze(data[`${ host }:${ clientPort || defaultClientPort }`]) })
           })
         })
         socketInstance.on('token_verify_fail', (message) => {
@@ -121,7 +124,7 @@ const useStore = defineStore({
         localStorage.setItem('isDark', isDark)
         this.$patch({ isDark })
       }
-      if(animate) {
+      if (animate) {
         let transition = document.startViewTransition(() => {
           document.documentElement.classList.toggle('dark')
         })

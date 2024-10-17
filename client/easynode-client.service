@@ -1,7 +1,8 @@
 [Unit]
-Description=easynode client server port_22022
+Description=easynode client server
 
 [Service]
+Environment="clientPort=22022"
 ExecStart=/root/local/easynode-client/easynode-client
 WorkingDirectory=/root/local/easynode-client
 Restart=always

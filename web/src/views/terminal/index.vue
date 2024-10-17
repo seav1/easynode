@@ -40,6 +40,7 @@
         :terminal-tabs="terminalTabs"
         @remove-tab="handleRemoveTab"
         @add-host="linkTerminal"
+        @close-all-tab="handleRemoveAllTab"
       />
     </div>
     <HostForm
@@ -74,9 +75,10 @@ let isAllConfssh = computed(() => {
   return hostList.value?.every(item => item.isConfig)
 })
 
-function linkTerminal(row) {
-  const { name, host } = row
-  terminalTabs.push({ key: randomStr(16), name, host, status: CONNECTING })
+function linkTerminal(hostInfo) {
+  let targetHost = hostList.value.find(item => item.id === hostInfo.id)
+  const { id, host, name } = targetHost
+  terminalTabs.push({ key: randomStr(16), id, name, host, status: CONNECTING })
 }
 
 function handleUpdateHost(row) {
@@ -86,6 +88,10 @@ function handleUpdateHost(row) {
 
 function handleRemoveTab(index) {
   terminalTabs.splice(index, 1)
+}
+
+function handleRemoveAllTab() {
+  terminalTabs.length = []
 }
 
 const handleUpdateList = async ({ host }) => {
@@ -101,11 +107,11 @@ const handleUpdateList = async ({ host }) => {
 
 onActivated(async () => {
   await nextTick()
-  const { host } = route.query
-  if (!host) return
-  let targetHosts = hostList.value.filter(item => host.includes(item.host)).map(item => {
-    const { name, host } = item
-    return { key: randomStr(16), name, host, status: CONNECTING }
+  const { hostIds } = route.query
+  if (!hostIds) return
+  let targetHosts = hostList.value.filter(item => hostIds.includes(item.id)).map(item => {
+    const { id, name, host } = item
+    return { key: randomStr(16), id, name, host, status: CONNECTING }
   })
   if (!targetHosts || !targetHosts.length) return
   terminalTabs.push(...targetHosts)

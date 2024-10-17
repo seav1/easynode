@@ -1,7 +1,7 @@
 const { Server: ServerIO } = require('socket.io')
 const { io: ClientIO } = require('socket.io-client')
 const { readHostList } = require('../utils/storage')
-const { clientPort } = require('../config')
+const { defaultClientPort } = require('../config')
 const { verifyAuthSync } = require('../utils/verify-auth')
 const { isAllowedIp } = require('../utils/tools')
 
@@ -15,9 +15,11 @@ async function getClientsInfo(clientSockets) {
     if (!hostList.some(item => item.host === clientItem.host)) clientItem.close && clientItem.close()
   })
   hostList
-    .map(({ host, name }) => {
-      if (clientSockets.some(item => item.host === host)) return { name, isIo: true } // 已经建立io连接(无论是否连接成功)的host不再重复建立连接,因为存在多次(reconnectionAttempts)的重试机制
-      let clientSocket = ClientIO(`http://${ host }:${ clientPort }`, {
+    .map(({ host, name, clientPort }) => {
+      // 已经建立io连接(无论是否连接成功)的host不再重复建立连接,因为存在多次(reconnectionAttempts)的重试机制
+      if (clientSockets.some(item => `${ item.host }:${ item.clientPort || defaultClientPort }` === `${ host }:${ clientPort || defaultClientPort }`)) return { name, isIo: true }
+      // console.log(name, 'clientPort:', clientPort)
+      let clientSocket = ClientIO(`http://${ host }:${ clientPort || defaultClientPort }`, {
         path: '/client/os-info',
         forceNew: true,
         timeout: 5000,
@@ -25,34 +27,35 @@ async function getClientsInfo(clientSockets) {
         reconnectionAttempts: 1000
       })
       // 将与客户端连接的socket实例保存起来，web端断开时关闭这些连接
-      clientSockets.push({ host, name, clientSocket })
+      clientSockets.push({ host, name, clientPort, clientSocket })
       return {
         host,
         name,
+        clientPort,
         clientSocket
       }
     })
     .forEach((item) => {
       if (item.isIo) return // console.log('已经建立io连接的host不再重复建立连接', item.name)
-      const { host, name, clientSocket } = item
-      // clientsData[host] = { connect: false }
+      const { host, name, clientPort, clientSocket } = item
+      // eslint-disable-next-line no-unused-vars
       clientSocket
         .on('connect', () => {
           consola.success('client connect success:', host, name)
           clientSocket.on('client_data', (osData) => {
-            clientsData[host] = { connect: true, ...osData }
+            clientsData[`${ host }:${ clientPort || defaultClientPort }`] = { connect: true, ...osData }
           })
           clientSocket.on('client_error', (error) => {
-            clientsData[host] = { connect: true, error: `client_error: ${ error }` }
+            clientsData[`${ host }:${ clientPort || defaultClientPort }`] = { connect: true, error: `client_error: ${ error }` }
           })
         })
         .on('connect_error', (error) => { // 连接失败
           // consola.error('client connect fail:', host, name, error.message)
-          clientsData[host] = { connect: false, error: `client_connect_error: ${ error }` }
+          clientsData[`${ host }:${ clientPort || defaultClientPort }`] = { connect: false, error: `client_connect_error: ${ error }` }
         })
         .on('disconnect', (error) => { // 一方主动断开连接
           // consola.info('client connect disconnect:', host, name)
-          clientsData[host] = { connect: false, error: `client_disconnect: ${ error }` }
+          clientsData[`${ host }:${ clientPort || defaultClientPort }`] = { connect: false, error: `client_disconnect: ${ error }` }
         })
     })
 }

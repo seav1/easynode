@@ -48,7 +48,7 @@
         <p>作者: <a class="link" href="https://github.com/chaos-zhu" target="_blank">chaoszhu</a></p>
         <p>tg更新通知：<a class="link" href="https://t.me/easynode_notify" target="_blank">https://t.me/easynode_notify</a></p>
         <p>
-          打赏: EasyNode开源且无任何收费，如果您认为此项目帮到了您, 您可以请我喝杯阔乐(留个备注咯)~
+          打赏: EasyNode开源且无任何收费，如果您认为此项目帮到了您, 您可以请我喝杯阔乐(记得留个备注)~
         </p>
         <p class="qrcode">
           <img src="@/assets/wx.jpg" alt="">

@@ -1,3 +1,26 @@
+## [2.2.7](https://github.com/chaos-zhu/easynode/releases) (2024-10-xx)
+
+### Features
+
+* 终端连接页新增展示服务端ping客户端延迟ms
+* 修复自定义客户端端口默认字符串的bug
+
+## [2.2.6](https://github.com/chaos-zhu/easynode/releases) (2024-10-14)
+
+### Features
+
+* 支持自定义客户端端口,方便穿透内网机器
+* 修复监控数据意外注入bug
+
+## [2.2.5](https://github.com/chaos-zhu/easynode/releases) (2024-10-11)
+
+### Features
+
+* 不再对同IP:PORT的实例进行校验
+* 支持同IP任意端口的服务器录入
+* 支持关闭所有终端连接
+* 修复第三方git代理地址
+
 ## [2.2.4](https://github.com/chaos-zhu/easynode/releases) (2024-08-31)
 
 ### Features

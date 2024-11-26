@@ -11,3 +11,7 @@ server/app/db/*
 plan.md
 .env
 .env.local
+.env-encrypt-key
+*clear.js
+local-script
+版本发布.md

@@ -1,11 +1,14 @@
 const { Server } = require('socket.io')
 const { Client: SSHClient } = require('ssh2')
-const { asyncSendNotice } = require('../utils/notify')
-const { readSSHRecord, readHostList, writeOneKeyRecord } = require('../utils/storage')
+const { sendNoticeAsync } = require('../utils/notify')
 const { verifyAuthSync } = require('../utils/verify-auth')
 const { shellThrottle } = require('../utils/tools')
-const { AESDecryptSync } = require('../utils/encrypt')
+const { AESDecryptAsync } = require('../utils/encrypt')
 const { isAllowedIp } = require('../utils/tools')
+const { HostListDB, CredentialsDB, OnekeyDB } = require('../utils/db-class')
+const hostListDB = new HostListDB().getInstance()
+const credentialsDB = new CredentialsDB().getInstance()
+const onekeyDB = new OnekeyDB().getInstance()
 
 const execStatusEnum = {
   connecting: '连接中',
@@ -121,7 +124,7 @@ module.exports = (httpServer) => {
           }
         })
         let reason = `执行超时,已强制终止执行 - 超时时间${ timeout }秒`
-        asyncSendNotice('onekey_complete', '批量指令执行超时', reason)
+        sendNoticeAsync('onekey_complete', '批量指令执行超时', reason)
         socket.emit('timeout', { reason, result: execResult })
         socket.disconnect()
         disconnectAllExecClient()
@@ -129,7 +132,7 @@ module.exports = (httpServer) => {
       console.log('hostIds:', hostIds)
       // console.log('token:', token)
       console.log('command:', command)
-      const hostList = await readHostList()
+      const hostList = await hostListDB.findAsync({})
       const targetHostsInfo = hostList.filter(item => hostIds.some(id => item._id === id)) || {}
       // console.log('targetHostsInfo:', targetHostsInfo)
       if (!targetHostsInfo.length) return socket.emit('create_fail', `未找到【${ hostIds }】服务器信息`)
@@ -145,13 +148,13 @@ module.exports = (httpServer) => {
           execResult.push(curRes)
           try {
             if (authType === 'credential') {
-              let credentialId = await AESDecryptSync(hostInfo['credential'])
-              const sshRecordList = await readSSHRecord()
+              let credentialId = await AESDecryptAsync(hostInfo['credential'])
+              const sshRecordList = await credentialsDB.findAsync({})
               const sshRecord = sshRecordList.find(item => item._id === credentialId)
               authInfo.authType = sshRecord.authType
-              authInfo[authInfo.authType] = await AESDecryptSync(sshRecord[authInfo.authType])
+              authInfo[authInfo.authType] = await AESDecryptAsync(sshRecord[authInfo.authType])
             } else {
-              authInfo[authType] = await AESDecryptSync(hostInfo[authType])
+              authInfo[authType] = await AESDecryptAsync(hostInfo[authType])
             }
             consola.info('准备连接终端执行一次性指令：', host)
             consola.log('连接信息', { username, port, authType })
@@ -188,7 +191,7 @@ module.exports = (httpServer) => {
         await Promise.all(execPromise)
         consola.success('onekey执行完成')
         socket.emit('exec_complete')
-        asyncSendNotice('onekey_complete', '批量指令执行完成', '请登录面板查看执行结果')
+        sendNoticeAsync('onekey_complete', '批量指令执行完成', '请登录面板查看执行结果')
         socket.disconnect()
       } catch (error) {
         consola.error('onekey执行失败', error)
@@ -205,7 +208,7 @@ module.exports = (httpServer) => {
           item.status = execStatusEnum.socketInterrupt
         }
       })
-      await writeOneKeyRecord(execResult)
+      await onekeyDB.insertAsync(execResult)
       isExecuting = false
       execResult = []
       execClient = []

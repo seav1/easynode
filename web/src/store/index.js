@@ -1,8 +1,9 @@
 import { io } from 'socket.io-client'
 import { defineStore, acceptHMRUpdate } from 'pinia'
+import dayjs from 'dayjs'
 import $api from '@/api'
 import config from '@/config'
-// import ping from '@/utils/ping'
+import { isHttps } from '@/utils'
 
 const { defaultClientPort } = config
 
@@ -17,10 +18,35 @@ const useStore = defineStore({
     localScriptList: [],
     HostStatusSocket: null,
     user: localStorage.getItem('user') || null,
-    token: sessionStorage.getItem('token') || localStorage.getItem('token') || null,
+    token: localStorage.getItem('token') || sessionStorage.getItem('token') || null,
     title: '',
     isDark: false,
-    menuCollapse: localStorage.getItem('menuCollapse') === 'true'
+    menuCollapse: localStorage.getItem('menuCollapse') === 'true',
+    defaultBackgroundImages: [
+      'linear-gradient(-225deg, #CBBACC 0%, #2580B3 100%)',
+      'linear-gradient(to top, #a18cd1 0%, #fbc2eb 100%)',
+      'linear-gradient(to top, #6a85b6 0%, #bac8e0 100%)',
+      'linear-gradient(to top, #7028e4 0%, #e5b2ca 100%)',
+      'linear-gradient(to top, #9be15d 0%, #00e3ae 100%)',
+      'linear-gradient(60deg, #abecd6 0%, #fbed96 100%)',
+      'linear-gradient(-20deg, #2b5876 0%, #4e4376 100%)',
+      'linear-gradient(to top, #1e3c72 0%, #1e3c72 1%, #2a5298 100%)',
+      'linear-gradient(to right, #243949 0%, #517fa4 100%)',
+    ],
+    terminalConfig: {
+      ...{
+        fontSize: 16,
+        themeName: 'Afterglow',
+        background: 'linear-gradient(-225deg, #CBBACC 0%, #2580B3 100%)',
+        quickCopy: isHttps(),
+        quickPaste: isHttps(),
+        autoReconnect: true,
+        autoExecuteScript: false
+      },
+      ...(localStorage.getItem('terminalConfig') ? JSON.parse(localStorage.getItem('terminalConfig')) : {})
+    },
+    plusInfo: {},
+    isPlusActive: false
   }),
   actions: {
     async setJwtToken(token, isSession = true) {
@@ -35,9 +61,9 @@ const useStore = defineStore({
     async setTitle(title) {
       this.$patch({ title })
     },
-    async clearJwtToken() {
-      localStorage.clear('token')
-      sessionStorage.clear('token')
+    async removeJwtToken() {
+      localStorage.removeItem('token')
+      sessionStorage.removeItem('token')
       this.$patch({ token: null })
     },
     async getMainData() {
@@ -45,11 +71,13 @@ const useStore = defineStore({
       await this.getHostList()
       await this.getSSHList()
       await this.getScriptList()
+      await this.getPlusInfo()
       this.wsClientsStatus()
     },
     async getHostList() {
       let { data: newHostList } = await $api.getHostList()
       newHostList = newHostList.map(newHostObj => {
+        newHostObj.expired = dayjs(newHostObj.expired).format('YYYY-MM-DD')
         const oldHostObj = this.hostList.find(({ id }) => id === newHostObj.id)
         return oldHostObj ? Object.assign({}, { ...oldHostObj }, { ...newHostObj }) : newHostObj
       })
@@ -72,17 +100,25 @@ const useStore = defineStore({
       const { data: localScriptList } = await $api.getLocalScriptList()
       this.$patch({ localScriptList })
     },
-    // getHostPing() {
-    //   setInterval(() => {
-    //     this.hostList.forEach((item) => {
-    //       const { host } = item
-    //       ping(`http://${ host }:${ 22022 }`)
-    //         .then((res) => {
-    //           item.ping = res
-    //         })
-    //     })
-    //   }, 2000)
-    // },
+    async getPlusInfo() {
+      const { data: plusInfo } = await $api.getPlusInfo()
+      if (plusInfo?.expiryDate) {
+        const isPlusActive = new Date(plusInfo.expiryDate) > new Date()
+        this.$patch({ isPlusActive })
+        if (!isPlusActive) {
+          this.setTerminalSetting({ autoReconnect: false })
+          return
+        }
+        plusInfo.expiryDate = dayjs(plusInfo.expiryDate).format('YYYY-MM-DD')
+        plusInfo.expiryDate?.startsWith('9999') && (plusInfo.expiryDate = '永久授权')
+      }
+      this.$patch({ plusInfo })
+    },
+    setTerminalSetting(setTarget = {}) {
+      let newConfig = { ...this.terminalConfig, ...setTarget }
+      localStorage.setItem('terminalConfig', JSON.stringify(newConfig))
+      this.$patch({ terminalConfig: newConfig })
+    },
     async wsClientsStatus() {
       // if (this.HostStatusSocket) this.HostStatusSocket.close()
       let socketInstance = io(this.serviceURI, {

@@ -13,9 +13,10 @@
           :model="loginForm"
           :rules="rules"
           :hide-required-asterisk="true"
+          :show-message="false"
           label-suffix="："
           label-width="90px"
-          :show-message="false"
+          label-position="top"
         >
           <el-form-item prop="loginName" label="用户名">
             <el-input
@@ -43,21 +44,23 @@
           <el-form-item v-show="false" prop="pwd" label="密码">
             <el-input v-model.trim="loginForm.pwd" />
           </el-form-item>
+          <el-form-item prop="mfa2Token" label="MFA2验证码">
+            <el-input
+              v-model.trim.number="loginForm.mfa2Token"
+              type="text"
+              placeholder="MFA2应用上的6位数字(未设置可忽略)"
+              autocomplete="off"
+              :trigger-on-focus="false"
+              clearable
+              autofocus
+              @keyup.enter="handleLogin"
+            />
+          </el-form-item>
           <el-form-item prop="jwtExpires" label="有效期">
-            <el-radio-group v-model="isSession" class="login-indate">
-              <el-radio :value="true">一次性会话</el-radio>
-              <el-radio :value="false">自定义(小时)</el-radio>
-              <el-input-number
-                v-model="loginForm.jwtExpires"
-                :disabled="isSession"
-                placeholder="单位：小时"
-                class="input"
-                :min="1"
-                :max="72"
-                value-on-clear="min"
-                size="small"
-                controls-position="right"
-              />
+            <el-radio-group v-model="expireTime" class="login-indate">
+              <el-radio :value="expireEnum.ONE_SESSION">一次性会话</el-radio>
+              <el-radio :value="expireEnum.CURRENT_DAY">当天有效</el-radio>
+              <el-radio :value="expireEnum.THREE_DAY">三天有效</el-radio>
             </el-radio-group>
           </el-form-item>
         </el-form>
@@ -79,59 +82,74 @@
 <script setup>
 import { ref, reactive, onMounted, getCurrentInstance } from 'vue'
 import { RSAEncrypt } from '@utils/index.js'
-// import { useRouter } from 'vue-router'
-// import useStore from '@store/index'
 
-// const router = useRouter()
 const { proxy: { $store, $api, $message, $messageBox, $router } } = getCurrentInstance()
 
+const expireEnum = reactive({
+  ONE_SESSION: 'one_session',
+  CURRENT_DAY: 'current_day',
+  THREE_DAY: 'three_day'
+})
+const expireTime = ref(expireEnum.CURRENT_DAY)
 const loginFormRefs = ref(null)
-const isSession = ref(true)
 const notKey = ref(false)
 const loading = ref(false)
 const loginForm = reactive({
   loginName: '',
   pwd: '',
-  jwtExpires: 8
+  jwtExpires: 1,
+  mfa2Token: ''
 })
 const rules = reactive({
   loginName: { required: true, message: '需输入用户名', trigger: 'change' },
-  pwd: { required: true, message: '需输入密码', trigger: 'change' }
+  pwd: { required: true, message: '需输入密码', trigger: 'change' },
+  mfa2Token: { required: false, message: '需输入密码', trigger: 'change' }
 })
 
 const handleLogin = () => {
-  loginFormRefs.value.validate().then(() => {
-    let { jwtExpires, loginName, pwd } = loginForm
-    jwtExpires = isSession.value ? '12h' : `${ jwtExpires }h`
-    if (!isSession.value) {
-      localStorage.setItem('jwtExpires', jwtExpires)
+  loginFormRefs.value.validate().then(async () => {
+    let { jwtExpires, loginName, pwd, mfa2Token } = loginForm
+    switch (expireTime.value) {
+      case expireEnum.ONE_SESSION:
+        jwtExpires = '1h' // 会话登录token1小时有效期，浏览器窗口关闭则立即失效
+        break
+      case expireEnum.CURRENT_DAY:
+        jwtExpires = `${ Math.floor((new Date().setHours(24,0,0,0) - Date.now()) / 1000) }s`
+        break
+      case expireEnum.THREE_DAY:
+        jwtExpires = '3d'
+        break
     }
     const ciphertext = RSAEncrypt(pwd)
     if (ciphertext === -1) return $message.error({ message: '公钥加载失败', center: true })
     loading.value = true
-    $api.login({ loginName, ciphertext, jwtExpires })
-      .then(({ data, msg }) => {
-        const { token } = data
-        $store.setJwtToken(token, isSession.value)
-        $store.setUser(loginName)
-        $message.success({ message: msg || 'success', center: true })
-        if (loginName === 'admin' && pwd === 'admin') {
-          $messageBox.confirm('请立即修改初始用户名及密码！防止恶意扫描！', '警告', {
-            confirmButtonText: '确定',
-            showCancelButton: false,
-            type: 'warning'
-          })
-            .then(async () => {
-              $router.push('/setting')
-            })
-        } else {
-          $router.push('/')
-        }
-      })
-      .finally(() => {
-        loading.value = false
-      })
+    try {
+      let { data, msg } = await $api.login({ loginName, ciphertext, jwtExpires, mfa2Token })
+      const { token } = data
+      $store.setJwtToken(token, expireEnum.ONE_SESSION === expireTime.value)
+      $store.setUser(loginName)
+      $message.success({ message: msg || 'success', center: true })
+      loginSuccess()
+    } finally {
+      loading.value = false
+    }
   })
+}
+
+const loginSuccess = () => {
+  let { loginName, pwd } = loginForm
+  if (loginName === 'admin' && pwd === 'admin') {
+    $messageBox.confirm('请立即修改初始用户名及密码！防止恶意扫描！', 'Warning', {
+      confirmButtonText: '确定',
+      showCancelButton: false,
+      type: 'warning'
+    })
+      .then(async () => {
+        $router.push('/setting')
+      })
+  } else {
+    $router.push('/')
+  }
 }
 
 onMounted(async () => {
@@ -139,6 +157,7 @@ onMounted(async () => {
   const { data } = await $api.getPubPem()
   if (!data) return (notKey.value = true)
   localStorage.setItem('publicKey', data)
+  $store.removeJwtToken()
 })
 </script>
 
@@ -156,7 +175,7 @@ onMounted(async () => {
 
   .login_box {
     margin-top: -80px;
-    width: 500px;
+    width: 450px;
     min-height: 250px;
     padding: 20px;
     border-radius: 6px;
@@ -182,7 +201,7 @@ onMounted(async () => {
 
 .login-indate {
   display: flex;
-  flex-wrap: nowrap;
+  // flex-wrap: nowrap;
 
   .input {
     margin-left: -25px;

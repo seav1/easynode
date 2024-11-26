@@ -1,6 +1,6 @@
 {
   "name": "web",
-  "version": "2.2.6",
+  "version": "3.0.2",
   "description": "easynode-web",
   "private": true,
   "scripts": {
@@ -33,6 +33,7 @@
     "codemirror": "^6.0.1",
     "crypto-js": "^4.2.0",
     "csv-parse": "^5.5.6",
+    "dayjs": "^1.11.13",
     "element-plus": "^2.7.6",
     "jsencrypt": "^3.3.2",
     "pinia": "^2.1.7",
@@ -45,6 +46,7 @@
   "devDependencies": {
     "@vitejs/plugin-vue": "^5.0.5",
     "@vitejs/plugin-vue-jsx": "^4.0.0",
+    "code-inspector-plugin": "^0.17.2",
     "eslint": "^8.56.0",
     "eslint-plugin-vue": "^9.27.0",
     "sass": "^1.77.7",

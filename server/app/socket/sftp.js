@@ -5,9 +5,11 @@ const CryptoJS = require('crypto-js')
 const { Server } = require('socket.io')
 const { sftpCacheDir } = require('../config')
 const { verifyAuthSync } = require('../utils/verify-auth')
-const { AESDecryptSync } = require('../utils/encrypt')
-const { readSSHRecord, readHostList } = require('../utils/storage')
+const { AESDecryptAsync } = require('../utils/encrypt')
 const { isAllowedIp } = require('../utils/tools')
+const { HostListDB, CredentialsDB } = require('../utils/db-class')
+const hostListDB = new HostListDB().getInstance()
+const credentialsDB = new CredentialsDB().getInstance()
 
 // 读取切片
 const pipeStream = (path, writeStream) => {
@@ -222,32 +224,32 @@ module.exports = (httpServer) => {
     let sftpClient = new SFTPClient()
     consola.success('terminal websocket 已连接')
 
-    socket.on('create', async ({ host: ip, token }) => {
+    socket.on('create', async ({ hostId, token }) => {
       const { code } = await verifyAuthSync(token, requestIP)
+      consola.log('code:', code)
       if (code !== 1) {
         socket.emit('token_verify_fail')
         socket.disconnect()
         return
       }
-
-      const hostList = await readHostList()
-      const targetHostInfo = hostList.find(item => item.host === ip) || {}
+      const targetHostInfo = await hostListDB.findOneAsync({ _id: hostId })
+      if (!targetHostInfo) throw new Error(`Host with ID ${ hostId } not found`)
       let { authType, host, port, username } = targetHostInfo
-      if (!host) return socket.emit('create_fail', `查找【${ ip }】凭证信息失败`)
+      if (!host) return socket.emit('create_fail', `查找id【${ hostId }】凭证信息失败`)
       let authInfo = { host, port, username }
 
       // 解密放到try里面，防止报错【commonKey必须配对, 否则需要重新添加服务器密钥】
       if (authType === 'credential') {
-        let credentialId = await AESDecryptSync(targetHostInfo[authType])
-        const sshRecordList = await readSSHRecord()
+        let credentialId = await AESDecryptAsync(targetHostInfo[authType])
+        const sshRecordList = await credentialsDB.findAsync({})
         const sshRecord = sshRecordList.find(item => item._id === credentialId)
         authInfo.authType = sshRecord.authType
-        authInfo[authInfo.authType] = await AESDecryptSync(sshRecord[authInfo.authType])
+        authInfo[authInfo.authType] = await AESDecryptAsync(sshRecord[authInfo.authType])
       } else {
-        authInfo[authType] = await AESDecryptSync(targetHostInfo[authType])
+        authInfo[authType] = await AESDecryptAsync(targetHostInfo[authType])
       }
       consola.info('准备连接Sftp面板：', host)
-      targetHostInfo[targetHostInfo.authType] = await AESDecryptSync(targetHostInfo[targetHostInfo.authType])
+      targetHostInfo[targetHostInfo.authType] = await AESDecryptAsync(targetHostInfo[targetHostInfo.authType])
 
       consola.log('连接信息', { username, port, authType })
       sftpClient
@@ -258,7 +260,7 @@ module.exports = (httpServer) => {
           return sftpClient.list('/')
         })
         .then((rootLs) => {
-        // 普通文件-、目录文件d、链接文件l
+          // 普通文件-、目录文件d、链接文件l
           socket.emit('root_ls', rootLs) // 先返回根目录
           listenInput(sftpClient, socket) // 监听前端请求
         })

@@ -1,9 +1,53 @@
-## [2.2.7](https://github.com/chaos-zhu/easynode/releases) (2024-10-xx)
+## [3.0.2](https://github.com/chaos-zhu/easynode/releases) (2024-11-20)
+
+* 修复添加实例错误禁用的bug
+
+
+## [3.0.1](https://github.com/chaos-zhu/easynode/releases) (2024-11-18)
+
+* 修复同IP实例SFTP连接到其他的实例的bug
+* 修复一些UI问题
+
+
+## [3.0.0](https://github.com/chaos-zhu/easynode/releases) (2024-11-09)
+
+* 新增跳板机功能,支持选择多台机器跳转
+* 脚本库批量导出导入
+* 本地socket断开自动重连,无需手动重新连接
+* 支持脚本库模糊搜索功能
+* 分组添加实例数量标识
+* 优化登录逻辑
+* 默认登录有效期更改为当天有效
+* 优化脚本库新增脚本时序号自动累加
+* 修复一些小bug
+
+## [2.3.0](https://github.com/chaos-zhu/easynode/releases) (2024-10-24)
+
+* 重构本地数据库存储方式(性能提升一个level~)
+* 支持MFA2二次登录验证
+* 优化了一些页面在移动端的展示
+* 修复偶现刷新页面需重新登录的bug
+
+
+## [2.2.8](https://github.com/chaos-zhu/easynode/releases) (2024-10-20)
+
+### Features
+
+* 兼容移动端UI
+* 新增移动端虚拟功能按键映射
+* 调整终端功能菜单
+* 登录日志本地化储存
+* 修复终端选中文本无法复制的bug
+* 修复无法展示服务端ping客户端延迟ms的bug
+* 修复暗黑模式下的一些样式问题
+
+## [2.2.7](https://github.com/chaos-zhu/easynode/releases) (2024-10-17)
 
 ### Features
 
 * 终端连接页新增展示服务端ping客户端延迟ms
 * 修复自定义客户端端口默认字符串的bug
+* 终端支持快捷设置开关: 快捷复制、快捷粘贴、选中脚本自动执行
 
 ## [2.2.6](https://github.com/chaos-zhu/easynode/releases) (2024-10-14)
 
